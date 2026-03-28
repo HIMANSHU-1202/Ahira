@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ahira API Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; max-width: 700px; }
+        h2   { color: #c4b5fd; margin-bottom: 4px; }
+        p    { color: #a89cc8; font-size: 13px; margin-bottom: 16px; }
+        button { background: #8a6cff; color: white; border: none; padding: 10px 20px;
+                 border-radius: 8px; cursor: pointer; font-size: 13px; margin: 4px; }
+        button:hover { background: #7c5cf0; }
+        button.green { background: #16a34a; }
+        input  { width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid #3a3a6e;
+                 background: #0d0d1a; color: white; font-size: 13px; box-sizing: border-box; margin-bottom: 12px; }
+        #log   { background: #0d0d1a; padding: 16px; border-radius: 10px; margin-top: 16px;
+                 white-space: pre-wrap; font-size: 12.5px; min-height: 200px;
+                 line-height: 1.7; max-height: 500px; overflow-y: auto; }
+        .ok    { color: #4ade80; }
+        .err   { color: #ff6b8a; }
+        .info  { color: #93c5fd; }
+        .warn  { color: #fbbf24; }
+        .bold  { color: #fff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h2>🔍 Ahira — OpenRouter Diagnostic</h2>
+<p>Step 1: paste your key → Step 2: click "Find & Test Free Models" → copy the working model name</p>
+
+<input id="apiKey" type="text" placeholder="Paste your OpenRouter key here: sk-or-v1-...">
+
+<div>
+    <button onclick="findAndTestFree()">🔎 Find & Test Free Models (do this first)</button>
+    <button onclick="clearLog()">Clear</button>
+</div>
+
+<div id="log">Paste your API key above then click the button...\n</div>
+
+<script>
+let workingModel = null;
+
+function getKey() {
+    return document.getElementById("apiKey").value.trim();
+}
+
+function log(type, msg) {
+    const el  = document.getElementById("log");
+    const ts  = new Date().toLocaleTimeString();
+    el.innerHTML += `<span class="${type}">[${ts}] ${msg}</span>\n`;
+    el.scrollTop  = el.scrollHeight;
+}
+
+function clearLog() {
+    document.getElementById("log").innerHTML = "";
+    workingModel = null;
+}
+
+async function findAndTestFree() {
+    const key = getKey();
+    if (!key.startsWith("sk-or")) {
+        log("err", "❌ Paste a valid OpenRouter key first (starts with sk-or-v1-)");
+        return;
+    }
+
+    log("bold", "\n═══ STEP 1: Fetching free models from OpenRouter ═══");
+
+    let freeModels = [];
+
+    try {
+        const res  = await fetch("https://openrouter.ai/api/v1/models", {
+            headers: { "Authorization": `Bearer ${key}` }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            log("err", `❌ Could not fetch models: ${JSON.stringify(data)}`);
+            return;
+        }
+
+        // Filter to free models only
+        freeModels = (data.data || []).filter(m =>
+            m.id.endsWith(":free") || m.pricing?.prompt === "0"
+        );
+
+        log("ok", `✅ Found ${freeModels.length} free models:`);
+        freeModels.slice(0, 20).forEach(m => {
+            log("info", `   • ${m.id}`);
+        });
+
+        if (freeModels.length === 0) {
+            log("warn", "⚠️ No free models found. Your key may be invalid.");
+            return;
+        }
+
+    } catch(e) {
+        log("err", `❌ Network error fetching models: ${e.message}`);
+        return;
+    }
+
+    log("bold", "\n═══ STEP 2: Testing each free model ═══");
+
+    for (const model of freeModels.slice(0, 8)) {
+        log("info", `\n▶ Testing: ${model.id}`);
+
+        try {
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization":      `Bearer ${key}`,
+                    "HTTP-Referer":       window.location.href,
+                    "X-OpenRouter-Title": "Ahira",
+                    "Content-Type":       "application/json"
+                },
+                body: JSON.stringify({
+                    model:      model.id,
+                    messages:   [{ role: "user", content: "Say hello in exactly 5 words." }],
+                    max_tokens: 30
+                })
+            });
+
+            const text = await res.text();
+            log("info", `   Status: ${res.status}`);
+
+            if (!res.ok) {
+                log("err", `   ❌ Failed: ${text.slice(0, 120)}`);
+                continue;
+            }
+
+            const data  = JSON.parse(text);
+            const reply = data?.choices?.[0]?.message?.content;
+
+            if (reply) {
+                log("ok", `   ✅ WORKS! Reply: "${reply.trim()}"`);
+                log("ok", `   ✅ USE THIS MODEL: ${model.id}`);
+                workingModel = model.id;
+                break;   // stop at first working model
+            } else {
+                log("warn", `   ⚠️ No reply in response: ${text.slice(0, 120)}`);
+            }
+
+        } catch(e) {
+            log("err", `   ❌ Error: ${e.message}`);
+        }
+    }
+
+    if (workingModel) {
+        log("bold", `\n═══ RESULT ═══`);
+        log("ok",   `✅ Working model: ${workingModel}`);
+        log("ok",   `Copy this model name — we will put it in chat.js`);
+    } else {
+        log("err",  `\n❌ No working free model found.`);
+        log("warn", `Your account may need credits, or try a different key.`);
+    }
+}
+</script>
+</body>
+</html>
