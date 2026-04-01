@@ -139,17 +139,19 @@ function enterApp() {
     document.getElementById("authWrapper").style.display = "none";
     document.getElementById("appWrapper").style.display  = "flex";
 
-    // Personalise header avatar and welcome
+    // Dynamic greeting by time of day
+    const hour = new Date().getHours();
+    const timeGreet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
     if (currentUser) {
         const initials = currentUser.name.charAt(0).toUpperCase();
         const btn = document.getElementById("profileBtn");
         if (btn) btn.innerText = initials;
         safe("chatWelcomeMsg", el => el.innerText = `Hi ${currentUser.name}! I'm Ahira 💜 How can I help you today?`);
-        safe("homeGreeting",   el => el.innerText = `Hey ${currentUser.name} 💜`);
-        // Drawer info
-        safe("drawerName",   el => el.innerText = currentUser.name);
-        safe("drawerEmail",  el => el.innerText = currentUser.email);
-        safe("drawerAvatar", el => el.innerText = initials);
+        safe("homeGreeting",   el => el.innerText = `${timeGreet}, ${currentUser.name} 💜`);
+        safe("drawerName",     el => el.innerText = currentUser.name);
+        safe("drawerEmail",    el => el.innerText = currentUser.email);
+        safe("drawerAvatar",   el => el.innerText = initials);
     }
 
     // Load state
@@ -262,8 +264,9 @@ async function loadHomeData() {
 
 function updateDateTime() {
     safe("dateTime", el => {
-        el.innerText = new Date().toLocaleString("en-IN", {
-            weekday:"long", month:"long", day:"numeric", hour:"2-digit", minute:"2-digit"
+        const now = new Date();
+        el.innerText = now.toLocaleDateString("en-IN", {
+            weekday:"long", day:"numeric", month:"long", year:"numeric"
         });
     });
 }
@@ -576,10 +579,32 @@ async function loadPlanner() {
 
 function buildPlannerCard(task,meta) {
     const done=task.completed===1, typeIcon={task:"📋",event:"🎉",reminder:"🔔"}[meta.type||"task"];
-    return `<div class="plannerCard ${done?"taskDone":""}" style="${task.priority==="high"?"border-left:3px solid #ff6b8a;":""}"><div class="plannerCardLeft"><div class="plannerTypeIcon">${typeIcon}</div><div><div class="taskText">${task.task}${task.priority==="high"?` <span style="color:#ff6b8a;font-size:11px;">🔥</span>`:""}</div><div class="taskMeta">${task.date?"📅 "+task.date:""} ${task.time?"⏰ "+task.time:""}</div></div></div><div style="display:flex;gap:5px;"><button class="iconBtn ${done?"btnDone":"btnPrimary"}" onclick="toggleTask(${task.id})">✔</button><button class="iconBtn btnDanger" onclick="deleteTask(${task.id})">🗑</button></div></div>`;
+    const hiPri = task.priority==="high";
+    // Colour-coded status dot
+    let dot = "";
+    if (!done && task.date) {
+        const t=new Date();t.setHours(0,0,0,0);
+        const d=new Date(task.date);d.setHours(0,0,0,0);
+        if (d<t)                      dot=`<span style="width:8px;height:8px;border-radius:50%;background:#F87171;flex-shrink:0;display:inline-block;margin-right:6px;"></span>`;
+        else if(d.getTime()===t.getTime()) dot=`<span style="width:8px;height:8px;border-radius:50%;background:#FBBF24;flex-shrink:0;display:inline-block;margin-right:6px;"></span>`;
+        else                          dot=`<span style="width:8px;height:8px;border-radius:50%;background:#CBD5E1;flex-shrink:0;display:inline-block;margin-right:6px;"></span>`;
+    }
+    return `<div class="plannerCard ${done?"taskDone":""}" style="${hiPri?"border-left:3px solid #F87171;":""}">
+        <div class="plannerCardLeft">
+            <div class="plannerTypeIcon">${typeIcon}</div>
+            <div style="flex:1;min-width:0;">
+                <div class="taskText" style="display:flex;align-items:center;">${dot}${task.task}${hiPri?` <span style="color:#F87171;font-size:11px;margin-left:4px;">🔥</span>`:""}</div>
+                <div class="taskMeta">${task.date?"📅 "+task.date:""} ${task.time?"⏰ "+task.time:""}</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:5px;">
+            <button class="iconBtn ${done?"btnDone":"btnPrimary"}" onclick="toggleTask(${task.id})">✔</button>
+            <button class="iconBtn btnDanger" onclick="deleteTask(${task.id})">🗑</button>
+        </div>
+    </div>`;
 }
 
-function emptyMsg(txt) { return `<p style="color:var(--text-light);font-size:13px;padding:12px 0;text-align:center;">${txt}</p>`; }
+function emptyMsg(txt) { return `<p style="color:var(--t3);font-size:13px;padding:14px 0;text-align:center;">${txt}</p>`; }
 function toggleCompleted() { completedVisible=!completedVisible; const l=document.getElementById("completedTaskList"),a=document.getElementById("completedToggleArrow"); if(l) l.style.display=completedVisible?"block":"none"; if(a) a.innerText=completedVisible?"∨":"›"; }
 async function deleteTask(id) { await fetch("/reminder/"+id,{method:"DELETE"}); loadPlanner(); }
 async function toggleTask(id) { await fetch("/reminder/"+id+"/toggle",{method:"POST"}); loadPlanner(); }
