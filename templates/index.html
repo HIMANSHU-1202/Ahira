@@ -372,7 +372,16 @@
                 <div class="screenHeader"><button class="backBtn" onclick="navApp('wellnessScreen')">‹</button><span class="screenTitle">Water Intake</span><button class="addPillBtn" style="margin-left:auto;" onclick="openWaterTarget()">Set Goal</button></div>
                 <div class="waterRingCard">
                     <div class="waterRingOuter">
-                        <svg class="waterRingSvg" viewBox="0 0 120 120"><circle class="ringTrack" cx="60" cy="60" r="50"/><circle class="ringFill" id="waterRingCircle" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"/></svg>
+                        <svg class="waterRingSvg" viewBox="0 0 120 120">
+                            <defs>
+                                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#6C3FCE"/>
+                                    <stop offset="100%" stop-color="#F472B6"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="ringTrack" cx="60" cy="60" r="50"/>
+                            <circle class="ringFill" id="waterRingCircle" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"/>
+                        </svg>
                         <div class="waterRingInner"><div class="waterRingCount" id="detailWaterCount">0</div><div class="waterRingLabel">glasses</div></div>
                     </div>
                     <div style="text-align:center;margin-top:8px;"><span style="font-size:13px;color:var(--text-mid);">Target: <b id="waterTargetLabel">8</b> · <span id="waterMlLabel">0 ml</span></span></div>
